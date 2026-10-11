@@ -4,10 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<title>Placas de vídeo | Painel de preços</title>
+<title>Hardware | Painel de preços</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;700&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
- 
 <style>
 /* Tokens */
 :root{
@@ -52,6 +51,11 @@ main{max-width:1080px;margin:0 auto;padding:48px 22px 72px}
 }
 input[type=search],select{min-width:0;padding:9px 14px;font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:12px}
 input[type=search]{flex:1 1 200px}
+.tabs{display:flex;gap:8px;flex:1 1 100%;overflow-x:auto;padding-bottom:2px}
+.tab{padding:8px 18px;white-space:nowrap;font:700 .95rem var(--body);color:var(--mute);background:var(--panel);border:1px solid var(--line);border-radius:99px;cursor:pointer;transition:all .2s}
+.tab:hover{color:var(--ink);border-color:var(--glow)}
+.tab[aria-pressed=true]{color:#fff;background:var(--glow);border-color:var(--glow);box-shadow:0 0 18px #7c5cff77}
+.tab small{margin-left:6px;font-weight:600;opacity:.7}
 .chips{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 100%}
 .btn,.chip{padding:6px 14px;font:600 .88rem var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:99px;cursor:pointer;transition:all .2s}
 .btn:hover,.chip:hover{border-color:var(--glow)}
@@ -59,7 +63,7 @@ input[type=search]{flex:1 1 200px}
 
 /* Linhas de placa (cada uma com sua cor em --c) */
 .series{--c:#7dff5a;position:relative;margin-bottom:54px}
-.s2{--c:#2ee6c9}.s3{--c:#a98bff}.s4{--c:#ff9a5c}
+.s2{--c:#2ee6c9}.s3{--c:#a98bff}.s4{--c:#ff9a5c}.s5{--c:#ff5c8a}.s6{--c:#5cb8ff}
 .ghost{
   position:absolute;top:-32px;right:-4px;font:700 clamp(4rem,15vw,9rem)/1 var(--display);white-space:nowrap;
   color:transparent;-webkit-text-stroke:1.5px var(--c);opacity:.22;pointer-events:none;user-select:none;
@@ -85,6 +89,7 @@ input[type=search]{flex:1 1 200px}
 .tag.is-note{font-weight:600;color:var(--ink);background:var(--line)}
 .price{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;font:600 1.8rem var(--display);letter-spacing:-.03em}
 .price small{margin-right:-4px;font-weight:400;font-size:.85rem;color:var(--mute)}
+.price.is-empty{font:600 .95rem var(--body);letter-spacing:0;color:var(--mute)}
 .diff{font:800 .8rem var(--body);letter-spacing:0;color:var(--mute)}
 
 /* Caixa "Já conferi no site" */
@@ -110,12 +115,13 @@ input[type=search]{flex:1 1 200px}
 <body>
 <main>
   <header class="hero">
-    <h1>Painel de preços<br>Placas de vídeo</h1>
+    <h1>Painel de preços<br>de hardware</h1>
     <p class="subtitle">Todas as ofertas anotadas, com filtros e ordenação. Marque cada uma depois de conferir o valor no site da loja.</p>
     <div class="stats" id="stats"></div>
   </header>
 
   <div class="toolbar">
+    <div class="tabs" id="tabs" role="group" aria-label="Categoria"></div>
     <input type="search" id="search" placeholder="Buscar modelo ou marca" aria-label="Buscar modelo ou marca">
     <select id="sort" aria-label="Ordenar">
       <option value="price-asc">Menor preço</option>
@@ -139,45 +145,80 @@ input[type=search]{flex:1 1 200px}
 </main>
 
 <script>
-/* Dados: s = loja, m = modelo, p = preço, note = observação (opcional) */
-const DATA = [
-  { name: "RTX 5060 Ti", items: [
-    { s: "KaBuM",    m: "Asus RTX 5060 Ti 8GB Dual OC",          p: 3200 },
-    { s: "Amazon",   m: "MSI RTX 5060 Ti Shadow OC 2X Plus 8GB", p: 3400 },
-    { s: "Terabyte", m: "Zotac RTX 5060 Ti Twin Edge OC 16GB",   p: 3200, note: "16 GB pelo preço da de 8 GB" }
+/* Dados: s = loja, m = modelo, p = preço (opcional), note = observação (opcional) */
+const CATEGORIES = [
+  { key: "gpu", name: "Placas de vídeo", series: [
+    { name: "RTX 5060 Ti", ghost: "5060 Ti", items: [
+      { s: "KaBuM",    m: "Asus RTX 5060 Ti 8GB Dual OC",          p: 3200 },
+      { s: "Amazon",   m: "MSI RTX 5060 Ti Shadow OC 2X Plus 8GB", p: 3400 },
+      { s: "Terabyte", m: "Zotac RTX 5060 Ti Twin Edge OC 16GB",   p: 3200, note: "16 GB pelo preço da de 8 GB" }
+    ]},
+    { name: "RTX 5060", ghost: "5060", items: [
+      { s: "Pichau",   m: "Asus Dual RTX 5060",            p: 2900 },
+      { s: "Amazon",   m: "MSI RTX 5060 8GB Ventus 2X OC", p: 3000 }
+    ]},
+    { name: "RTX 4060", ghost: "4060", items: [
+      { s: "KaBuM",    m: "Galax RTX 4060 OC 2X 8GB", p: 2950 }
+    ]},
+    { name: "RTX 3060", ghost: "3060", items: [
+      { s: "Pichau",   m: "Gigabyte RTX 3060 Gaming OC",     p: 2000 },
+      { s: "KaBuM",    m: "Gigabyte RTX 3060 Gaming OC 8GB", p: 2300 }
+    ]}
   ]},
-  { name: "RTX 5060", items: [
-    { s: "Pichau",   m: "Asus Dual RTX 5060",            p: 2900 },
-    { s: "Amazon",   m: "MSI RTX 5060 8GB Ventus 2X OC", p: 3000 }
+  { key: "cpu", name: "Processadores", series: [
+    { name: "AMD Ryzen 7 5700X", ghost: "5700X", items: [
+      { s: "KaBuM",  m: "AMD Ryzen 7 5700X, 3.4GHz (4.6GHz Max Turbo), 8 Cores, 16 Threads" },
+      { s: "Pichau", m: "AMD Ryzen 7 5700X, 3.4GHz (4.6GHz Max Turbo), 8 Cores, 16 Threads" },
+      { s: "Amazon", m: "AMD Ryzen 7 5700X, 3.4GHz (4.6GHz Max Turbo), 8 Cores, 16 Threads" }
+    ]}
   ]},
-  { name: "RTX 4060", items: [
-    { s: "KaBuM",    m: "Galax RTX 4060 OC 2X 8GB", p: 2950 }
-  ]},
-  { name: "RTX 3060", items: [
-    { s: "Pichau",   m: "Gigabyte RTX 3060 Gaming OC",     p: 2000 },
-    { s: "KaBuM",    m: "Gigabyte RTX 3060 Gaming OC 8GB", p: 2300 }
+  { key: "mon", name: "Monitores", series: [
+    { name: "Asus TUF 240Hz", ghost: "240Hz", items: [
+      { s: "Pichau", m: "Asus TUF (240Hz)", p: 1100 },
+      { s: "KaBuM",  m: "Asus TUF (240Hz)", p: 1100 }
+    ]},
+    { name: "Asus TUF 260Hz", ghost: "260Hz", items: [
+      { s: "KaBuM",    m: "Asus TUF (260Hz)", p: 860 },
+      { s: "Terabyte", m: "Asus TUF (260Hz)", p: 850 }
+    ]},
+    { name: "Asus TUF 310Hz", ghost: "310Hz", items: [
+      { s: "KaBuM", m: "Asus TUF (310Hz)", p: 1100 }
+    ]},
+    { name: "Alienware 320Hz", ghost: "320Hz", items: [
+      { s: "Amazon", m: "Alienware (320Hz)", p: 1300 }
+    ]},
+    { name: "AOC Agon 310Hz", ghost: "310Hz", items: [
+      { s: "Amazon", m: "AOC Agon (310Hz)", p: 1200 }
+    ]},
+    { name: "Pichau Nexus 360Hz", ghost: "360Hz", items: [
+      { s: "Pichau", m: "Pichau Nexus (360Hz)", p: 1200 }
+    ]}
   ]}
 ];
 
 /* Estado */
-const KEY = "gpu-check-v3";
-const filters = { query: "", sort: "price-asc", store: "", pending: false };
+const KEY = "hardware-check-v4";
+const filters = { cat: 0, query: "", sort: "price-asc", store: "", pending: false };
 let checked = {};
 try { checked = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
 
-DATA.forEach((s, si) => s.items.forEach((item, ii) => item.id = `${si}-${ii}`));
-const ALL = DATA.flatMap(s => s.items);
-const STORES = [...new Set(ALL.map(i => i.s))].sort();
+CATEGORIES.forEach(c => {
+  c.series.forEach((s, si) => s.items.forEach((item, ii) => item.id = `${c.key}-${si}-${ii}`));
+  c.items = c.series.flatMap(s => s.items);
+  c.stores = [...new Set(c.items.map(i => i.s))].sort();
+});
+const current = () => CATEGORIES[filters.cat];
 
 /* Auxiliares */
 const $ = id => document.getElementById(id);
 const brl = n => n.toLocaleString("pt-BR");
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-const lowest = items => Math.min(...items.map(i => i.p));
+const priced = items => items.filter(i => i.p != null);
+const lowest = items => { const p = priced(items).map(i => i.p); return p.length ? Math.min(...p) : null; };
 const SORTS = {
-  "price-asc":  (a, b) => a.p - b.p,
-  "price-desc": (a, b) => b.p - a.p,
-  "store":      (a, b) => a.s.localeCompare(b.s) || a.p - b.p
+  "price-asc":  (a, b) => (a.p ?? 1e12) - (b.p ?? 1e12),
+  "price-desc": (a, b) => (b.p ?? -1) - (a.p ?? -1),
+  "store":      (a, b) => a.s.localeCompare(b.s) || (a.p ?? 1e12) - (b.p ?? 1e12)
 };
 
 function matches(item, series) {
@@ -188,39 +229,57 @@ function matches(item, series) {
 }
 
 /* Renderização */
+function renderTabs() {
+  $("tabs").innerHTML = CATEGORIES.map((c, i) =>
+    `<button type="button" class="tab" data-cat="${i}" aria-pressed="${i === filters.cat}">${c.name}<small>${c.items.length}</small></button>`
+  ).join("");
+}
+
 function renderChips() {
   const chip = (label, store) =>
     `<button type="button" class="chip" data-store="${esc(store)}" aria-pressed="${filters.store === store}">${esc(label)}</button>`;
-  $("chips").innerHTML = chip("Todas as lojas", "") + STORES.map(s => chip(s, s)).join("");
+  $("chips").innerHTML = chip("Todas as lojas", "") + current().stores.map(s => chip(s, s)).join("");
 }
 
 function renderStats() {
-  const min = lowest(ALL);
-  const best = ALL.find(i => i.p === min);
-  const avg = Math.round(ALL.reduce((sum, i) => sum + i.p, 0) / ALL.length);
-  const done = ALL.filter(i => checked[i.id]).length;
+  const { items, series, stores } = current();
+  const withPrice = priced(items);
+  const done = items.filter(i => checked[i.id]).length;
+  let cheapest = `<b>—</b><span>preços ainda não informados</span>`;
+  let average = `<b>—</b><span>preço médio indisponível</span>`;
+
+  if (withPrice.length) {
+    const min = lowest(items);
+    const best = withPrice.find(i => i.p === min);
+    const avg = Math.round(withPrice.reduce((sum, i) => sum + i.p, 0) / withPrice.length);
+    cheapest = `<b>R$ ${brl(min)}</b><span>mais barata: ${esc(best.m)} (${esc(best.s)})</span>`;
+    average = `<b>R$ ${brl(avg)}</b><span>preço médio da lista</span>`;
+  }
 
   $("stats").innerHTML = `
-    <div class="stat"><b>${ALL.length}</b><span>ofertas em ${DATA.length} linhas e ${STORES.length} lojas</span></div>
-    <div class="stat"><b>R$ ${brl(min)}</b><span>mais barata: ${esc(best.m)} (${esc(best.s)})</span></div>
-    <div class="stat"><b>R$ ${brl(avg)}</b><span>preço médio da lista</span></div>
-    <div class="stat"><b>${done} de ${ALL.length}</b><span>já conferidas</span>
-      <div class="progress"><i style="width:${Math.round(done / ALL.length * 100)}%"></i></div></div>`;
+    <div class="stat"><b>${items.length}</b><span>ofertas em ${stores.length} lojas</span></div>
+    <div class="stat">${cheapest}</div>
+    <div class="stat">${average}</div>
+    <div class="stat"><b>${done} de ${items.length}</b><span>já conferidas</span>
+      <div class="progress"><i style="width:${Math.round(done / items.length * 100)}%"></i></div></div>`;
 }
 
 function renderCard(item, series) {
   const done = !!checked[item.id];
+  const hasPrice = item.p != null;
   const min = lowest(series.items);
-  const multi = series.items.length > 1;
-  const best = multi && item.p === min;
-  const diff = item.p - min;
+  const multi = priced(series.items).length > 1;
+  const best = multi && hasPrice && item.p === min;
+  const diff = hasPrice && multi ? item.p - min : 0;
 
   return `
     <article class="card${best ? " is-best" : ""}${done ? " is-done" : ""}">
       <div class="card-top"><span class="store">${esc(item.s)}</span>${best ? '<span class="tag">Menor da linha</span>' : ""}</div>
       <div class="model">${esc(item.m)}</div>
       ${item.note ? `<div><span class="tag is-note">${esc(item.note)}</span></div>` : ""}
-      <div class="price"><small>R$</small>${brl(item.p)}${multi && diff ? `<span class="diff">+R$ ${brl(diff)} na linha</span>` : ""}</div>
+      ${hasPrice
+        ? `<div class="price"><small>R$</small>${brl(item.p)}${diff ? `<span class="diff">+R$ ${brl(diff)} no grupo</span>` : ""}</div>`
+        : `<div class="price is-empty">Preço ainda não informado</div>`}
       <label class="check"><input type="checkbox" data-id="${item.id}" ${done ? "checked" : ""}>Já conferi no site</label>
     </article>`;
 }
@@ -229,15 +288,15 @@ function renderSeries(series, index) {
   const items = series.items.filter(i => matches(i, series)).sort(SORTS[filters.sort]);
   if (!items.length) return "";
   return `
-    <section class="series s${index + 1}">
-      <span class="ghost" aria-hidden="true">${series.name.replace("RTX ", "")}</span>
-      <h2>${series.name}<small>${items.length} ${items.length > 1 ? "ofertas" : "oferta"}</small></h2>
+    <section class="series s${index % 6 + 1}">
+      <span class="ghost" aria-hidden="true">${esc(series.ghost)}</span>
+      <h2>${esc(series.name)}<small>${items.length} ${items.length > 1 ? "ofertas" : "oferta"}</small></h2>
       <div class="grid">${items.map(i => renderCard(i, series)).join("")}</div>
     </section>`;
 }
 
 function renderList() {
-  $("list").innerHTML = DATA.map(renderSeries).join("")
+  $("list").innerHTML = current().series.map(renderSeries).join("")
     || '<p class="empty">Nenhuma oferta encontrada com esses filtros.</p>';
 }
 
@@ -249,9 +308,12 @@ function update() {
 }
 
 function copyList(btn) {
-  const text = [`PLACAS DE VÍDEO (anotado em 10/10/2026)`, ...DATA.flatMap(s => [
-    "", s.name,
-    ...s.items.map(i => `- ${i.s}: R$ ${brl(i.p)} (${i.m})${checked[i.id] ? " [conferido]" : ""}`)
+  const text = ["LISTA DE HARDWARE (anotado em 10/10/2026)", ...CATEGORIES.flatMap(c => [
+    "", `===== ${c.name} =====`,
+    ...c.series.flatMap(s => [
+      "", s.name,
+      ...s.items.map(i => `- ${i.s}: ${i.p != null ? "R$ " + brl(i.p) : "preço não informado"} (${i.m})${checked[i.id] ? " [conferido]" : ""}`)
+    ])
   ])].join("\n");
   const say = msg => { btn.textContent = msg; setTimeout(() => btn.textContent = "Copiar lista", 1600); };
   navigator.clipboard.writeText(text).then(() => say("Copiado"), () => say("Não foi possível copiar"));
@@ -267,11 +329,18 @@ document.addEventListener("change", e => {
 });
 
 document.addEventListener("click", e => {
+  const tab = e.target.closest("[data-cat]");
+  if (tab) {
+    filters.cat = +tab.dataset.cat;
+    filters.store = "";
+    renderTabs(); renderChips(); update();
+    return;
+  }
   const chip = e.target.closest("[data-store]");
-  if (!chip) return;
-  filters.store = chip.dataset.store;
-  renderChips();
-  renderList();
+  if (chip) {
+    filters.store = chip.dataset.store;
+    renderChips(); renderList();
+  }
 });
 
 $("search").oninput  = e => { filters.query = e.target.value; renderList(); };
@@ -281,6 +350,7 @@ $("reset").onclick   = () => { checked = {}; update(); };
 $("print").onclick   = () => window.print();
 $("copy").onclick    = e => copyList(e.currentTarget);
 
+renderTabs();
 renderChips();
 update();
 </script>
